@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.340">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Accessing WorldPop API for beginners</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="worldpop_data_files/libs/clipboard/clipboard.min.js"></script>
+<script src="worldpop_data_files/libs/quarto-html/quarto.js"></script>
+<script src="worldpop_data_files/libs/quarto-html/popper.min.js"></script>
+<script src="worldpop_data_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="worldpop_data_files/libs/quarto-html/anchor.min.js"></script>
+<link href="worldpop_data_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="worldpop_data_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="worldpop_data_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="worldpop_data_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="worldpop_data_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Accessing WorldPop API for beginners</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<div class="cell" data-execution_count="34">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> requests</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> rasterio</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Define request fun</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_api(url, record_path <span class="op">=</span> <span class="st">"data"</span>):</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  response <span class="op">=</span> requests.get(url)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Check if the request was successful (status code 200)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> response.status_code <span class="op">==</span> <span class="dv">200</span>:</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> response.json()  <span class="co"># If the response is in JSON format</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> pd.json_normalize(data, record_path, max_level<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="cf">else</span>:</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"Error:"</span>, response.status_code)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span>(data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="basic-api-calls" class="level2">
+<h2 class="anchored" data-anchor-id="basic-api-calls">Basic API calls</h2>
+<p>The <a href="https://www.worldpop.org/sdi/introapi/">WorldPop REST API</a> facilitates the querying of the WorldPop database to GET information on data held on the database, along with accompanying metadata associated with the data.</p>
+<section id="get-worldpop-available-datasets" class="level3">
+<h3 class="anchored" data-anchor-id="get-worldpop-available-datasets">Get WorldPop available datasets</h3>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> <span class="st">"https://www.worldpop.org/rest/data"</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> get_api(base_url)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="3">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">alias</th>
+<th data-quarto-table-cell-role="th">name</th>
+<th data-quarto-table-cell-role="th">title</th>
+<th data-quarto-table-cell-role="th">desc</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>pop</td>
+<td>Population Counts</td>
+<td>Population Counts</td>
+<td>&lt;b&gt;WorldPop produces different types of gridded population count datasets, depending on the methods used and end application. \r\nPlease make sure you have read our &lt;a href="https://www.worldpop.org/methods/populations" target="_blank"&gt;Mapping Populations&lt;/a&gt; overview page before choosing and downloading a dataset.&lt;/b&gt; \r\n&lt;br/&gt;&lt;br/&gt; \r\nBespoke methods used to produce datasets for specific individual countries are available through the &lt;b&gt;WorldPop Open Population Repository (WOPR)&lt;/b&gt; link below. \r\nThese are 100m resolution gridded population estimates using customized methods ("&lt;a href="https://www.worldpop.org/methods/populations" target="_blank"&gt;bottom-up&lt;/a&gt;" and/or "&lt;a href="https://www.worldpop.org/methods/populations" target="_blank"&gt;top-down&lt;/a&gt;") developed for the latest data available from each country. \r\nThey can also be visualised and explored through the &lt;a href="https://apps.worldpop.org/woprVision/" target="_blank"&gt;woprVision App&lt;/a&gt;.\r\n&lt;br/&gt;\r\nThe remaining datasets in the links below are produced using the "&lt;a href="https://www.worldpop.org/methods/populations" target="_blank"&gt;top-down&lt;/a&gt;" method, \r\nwith either the unconstrained or constrained top-down disaggregation method used. \r\nPlease make sure you read the &lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;Top-down estimation modelling overview page&lt;/a&gt; to decide on which datasets best meet your needs. \r\nDatasets are available to download in Geotiff and ASCII XYZ format at a &lt;u&gt;resolution of 3 and 30 arc-seconds (approximately 100m and 1km at the equator, respectively)&lt;/u&gt;:\r\n&lt;br/&gt;&lt;br/&gt;\r\n- Unconstrained individual countries 2000-2020 ( 1km resolution ): Consistent 1km resolution population count datasets created using \r\n&lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;unconstrained top-down methods&lt;/a&gt; for all countries of the World for each year 2000-2020. \r\n&lt;br/&gt;\r\n- Unconstrained individual countries 2000-2020 ( 100m resolution ): Consistent 100m resolution population count datasets created using \r\n&lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;unconstrained top-down methods&lt;/a&gt; for all countries of the World for each year 2000-2020. \r\n&lt;br/&gt;\r\n- Unconstrained individual countries 2000-2020 UN adjusted ( 100m resolution ): Consistent 100m resolution population count datasets created using \r\n&lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;unconstrained top-down methods&lt;/a&gt; for all countries of the World for each year 2000-2020 and adjusted to match United Nations national population estimates (&lt;a href="https://population.un.org/wpp/Download/Files/1_Indicators (Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx" target="_blank"&gt;UN 2019&lt;/a&gt;)\r\n&lt;br/&gt;\r\n-Unconstrained individual countries 2000-2020 UN adjusted ( 1km resolution ): Consistent 1km resolution population count datasets created using \r\n&lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;unconstrained top-down methods&lt;/a&gt; for all countries of the World for each year 2000-2020 and adjusted to match United Nations national population estimates (&lt;a href="https://population.un.org/wpp/Download/Files/1_Indicators (Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx" target="_blank"&gt;UN 2019&lt;/a&gt;).\r\n&lt;br/&gt;\r\n-Unconstrained global mosaics 2000-2020 ( 1km resolution ): Mosaiced 1km resolution versions of the "Unconstrained individual countries 2000-2020" datasets.\r\n&lt;br/&gt;\r\n-Constrained individual countries 2020 ( 100m resolution ): Consistent 100m resolution population count datasets created using \r\n&lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;constrained top-down methods&lt;/a&gt; for all countries of the World for 2020.\r\n&lt;br/&gt;\r\n-Constrained individual countries 2020 UN adjusted ( 100m resolution ): Consistent 100m resolution population count datasets created using \r\n&lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;constrained top-down methods&lt;/a&gt; for all countries of the World for 2020 and adjusted to match United Nations national \r\npopulation estimates (&lt;a href="https://population.un.org/wpp/Download/Files/1_Indicators (Standard)/EXCEL_FILES/1_Population/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx" target="_blank"&gt;UN 2019&lt;/a&gt;).\r\n&lt;br/&gt;\r\n&lt;br/&gt;\r\nOlder datasets produced for specific individual countries and continents, using a set of tailored geospatial inputs and differing "top-down" methods and time periods are still available for download here: &lt;a href="https://www.worldpop.org/geodata/listing?id=16"&gt;Individual countries&lt;/a&gt; and &lt;a href="https://www.worldpop.org/geodata/listing?id=17"&gt;Whole Continent&lt;/a&gt;.\r\n</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1</td>
+<td>births</td>
+<td>Births</td>
+<td>Births</td>
+<td>The health and survival of women and their new-born babies in low income countries is a key public health priority, but basic and consistent subnational data on the number of live births to support decision making has been lacking. WorldPop integrates small area data on the distribution of women of childbearing age and age-specific fertility rates to map the estimated distributions of births for each 1x1km grid square across all low and middle income countries. Further details on the methods can be found in &lt;a href="https://ij-healthgeographics.biomedcentral.com/articles/10.1186/1476-072X-13-2" target="_blank"&gt;Tatem et al.&lt;/a&gt; and &lt;a href="https://www.nature.com/articles/sdata201890" target="_blank"&gt;James et al.&lt;/a&gt;.</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2</td>
+<td>pregnancies</td>
+<td>Pregnancies</td>
+<td>Pregnancies</td>
+<td>The health and survival of women and their new-born babies in low income countries is a key public health priority, but basic and consistent subnational data on the number of pregnancies to support decision making has been lacking. WorldPop integrates small area data on the distribution of women of childbearing age, age-specific fertility rates, still births and abortions to map the estimated distributions of pregnancies for each 1x1km grid square across all low and middle income countries. Further details on the methods can be found in &lt;a href="https://ij-healthgeographics.biomedcentral.com/articles/10.1186/1476-072X-13-2" target="_blank"&gt;Tatem et al&lt;/a&gt; and &lt;a href="https://www.nature.com/articles/sdata201890" target="_blank"&gt;James et al.&lt;/a&gt;.</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3</td>
+<td>urban_change</td>
+<td>Urban change</td>
+<td>Urban change</td>
+<td>East–Southeast Asia is currently one of the fastest urbanizing regions in the world, with countries such as China climbing from 20 to 50% urbanized in just a few decades. However, spatially-and temporally-detailed information on regional-scale changes in urban land or population distribution have not previously been available; previous efforts have been either sample-based, focused on one country, or drawn conclusions from datasets with substantial temporal/spatial mismatch and variability in urban definitions. In collaboration with the World Bank and University of Wisconsin-Madison, WorldPop used consistent methodology, satellite imagery and census data for &gt;1000 agglomerations in the East–Southeast Asian region to map population changes between 2000 and 2010. The data are available here and described in detail in &lt;a href="http://iopscience.iop.org/article/10.1088/1748-9326/10/3/034002" target="_blank"&gt;Schneider et al&lt;/a&gt;, and this &lt;a href="https://openknowledge.worldbank.org/handle/10986/21159" target="_blank"&gt;report&lt;/a&gt;.</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4</td>
+<td>age_structures</td>
+<td>Age and sex structures</td>
+<td>Age and sex structures</td>
+<td>&lt;b&gt;WorldPop produces different types of gridded population count datasets, depending on the methods used and end application. \r\nPlease make sure you have read our &lt;a href="/methods/populations" target="_blank"&gt;Mapping Populations&lt;/a&gt; overview page before choosing and downloading a dataset.&lt;/b&gt; \r\n&lt;br/&gt;&lt;br/&gt; \r\n\r\nA description of the modelling methods used for age and sex structures can be found in \r\n&lt;a href="https://pophealthmetrics.biomedcentral.com/articles/10.1186/1478-7954-11-11" target="_blank"&gt;\r\nTatem et al&lt;/a&gt; and \r\n&lt;a href="https://dx.doi.org/10.1038/sdata.2017.89" target="_blank"&gt;Pezzulo et al&lt;/a&gt;. Details of the input population count datasets used can be found &lt;a href="https://www.worldpop.org/project/categories?id=3" target="_blank"&gt;here&lt;/a&gt;, and age/sex structure proportion datasets &lt;a href="https://www.portal.worldpop.org/demographics/data/global_agesex_proportions_totals_2020.zip" target="_blank"&gt;here&lt;/a&gt;. \r\n&lt;br/&gt;\r\nBoth top-down 'unconstrained' and 'constrained' versions of the datasets are available, and the differences between the two methods are outlined \r\n&lt;a href="/methods/top_down_constrained_vs_unconstrained" target="_blank"&gt;here&lt;/a&gt;. The datasets represent the outputs from a project focused on construction of consistent 100m resolution population count datasets for all countries of the World structured by male/female and 5-year age classes (plus a &lt;1 year class). These efforts necessarily involved some shortcuts for consistency. The unconstrained datasets are available for each year from 2000 to 2020. \r\nThe constrained datasets are only available for 2020 at present, given the time periods represented by the building footprint and built settlement datasets used in the mapping.</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">5</td>
+<td>dahi</td>
+<td>Development Indicators</td>
+<td>Development and Health Indicators</td>
+<td>Improved understanding of geographical variation and inequity in health status, wealth and access to resources within countries is increasingly being recognized as central to meeting development goals. Development and health indicators assessed at national or subnational scale can often conceal important inequities, with the rural poor often least well represented. WorldPop develops methods for the integration of geolocated cluster sample data from household surveys with geospatial covariates in Bayesian geostatistical modelling frameworks to map key development and health indicators at high spatial resolution. These include indicators relating to poverty, literacy, sanitation, maternal and newborn health, contraceptive use and vaccination coverage, among others. Details of methods used and outputs can be found in &lt;a href="https://www.sciencedirect.com/science/article/pii/S0264410X18301944" target="_blank"&gt;Utazi et al 1&lt;/a&gt;, &lt;a href="https://journals.sagepub.com/doi/abs/10.1177/0962280218797362" target="_blank"&gt;Utazi et al 2&lt;/a&gt;, &lt;a href="https://royalsocietypublishing.org/doi/full/10.1098/rsif.2016.0690" target="_blank"&gt;Steele et al&lt;/a&gt;, &lt;a href="https://royalsocietypublishing.org/doi/full/10.1098/rsif.2016.0825" target="_blank"&gt;Bosco et al&lt;/a&gt;, &lt;a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0162006" target="_blank"&gt;Ruktanonchai et al&lt;/a&gt; and &lt;a href="http://www.dev.worldpop.uk/resources/docs/pdf/Poverty-mapping-report.pdf" target="_blank"&gt;Tatem et al.&lt;/a&gt;\r\n</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">6</td>
+<td>dependency_ratios</td>
+<td>Dependency Ratios</td>
+<td>Dependency Ratios</td>
+<td>The age group composition of populations varies substantially across continents and within countries, and is linked to levels of development, health status and poverty. The subnational variability in the shape of the population pyramid as well as the respective dependency ratio are reflective of the different levels of development of a country and are drivers for a country’s economic prospects and health burdens. WorldPop’s assembly of subnational population pyramid data has here been used to produce continent-wide subnational scale dependency ratio datasets, with full details found in &lt;a href="https://www.nature.com/articles/sdata201789" target="_blank"&gt;Pezzulo et al&lt;/a&gt;.</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">7</td>
+<td>internal_migration_f</td>
+<td>Migration Flows</td>
+<td>Migration Flows</td>
+<td>Human mobility continues to increase in terms of volumes and reach, producing growing global connectivity. Quantifying and modeling human migration can contribute towards a better understanding of the nature of migration and help develop evidence-based interventions for\r\ndisease control policy, economic development, and resource allocation. WorldPop has worked to pair census microdata from multiple low and middle income countries with migrant stock data and additional\r\ngeospatial datasets to develop models for internal and international migration flows,\r\nincluding key drivers that reflect the changing social, demographic, economic, and\r\nenvironmental landscapes. These have been applied to map internal and international migration at sub-national level for all low and middle income countries, with the datasets available to download here, and methods described in &lt;a href="https://www.nature.com/articles/sdata201666" target="_blank"&gt;Sorichetta et al&lt;/a&gt;, &lt;a href="https://academic.oup.com/migration/article-pdf/3/1/89/17170181/mnu036.pdf" target="_blank"&gt;Garcia et al&lt;/a&gt;, Ceausu et al., Modelling sex-disaggregated internal migration flows in low- and middle-income countries (in preparation), and Ceausu et al., Estimating sex-disaggregated interregional migration in the Global South (in preparation).</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">8</td>
+<td>dynamic_mapping</td>
+<td>Dynamic Mapping</td>
+<td>Dynamic Mapping</td>
+<td>Knowing where people are is critical for accurate impact assessments and intervention planning, particularly those focused on population health, food security, climate change, conflicts, and natural disasters. WorldPop has demonstrated how data collected by mobile phone network operators can cost-effectively provide accurate and detailed maps of population distribution over national scales and any time period while guaranteeing phone users’ privacy. Methods are described in &lt;a href="https://www.pnas.org/content/111/45/15888" target="_blank"&gt;Deville et al&lt;/a&gt; and &lt;a href="https://pophealthmetrics.biomedcentral.com/articles/10.1186/s12963-016-0106-0" target="_blank"&gt; zu Erbach-Schoenberg et al&lt;/a&gt;, and datasets representing estimated monthly population distributions for France and Portugal are available to download here.</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9</td>
+<td>global_flight_data</td>
+<td>Global Flight Data</td>
+<td>Global Flight Data</td>
+<td>The expanding global air network provides rapid and wide-reaching connections accelerating both domestic and international travel. To understand human movement patterns on the network and their socioeconomic, environmental and epidemiological implications, information on passenger flow is required. However, comprehensive data on global passenger flow remain difficult and expensive to obtain, prompting researchers and analysts to rely on scheduled flight seat capacity data or simple models of flow. WorldPop has collated openly available monthly statistics of air passengers across countries and years, and developed models of global air passenger flows, with annual flow methods described in &lt;a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0064317" target="_blank"&gt;Huang et al&lt;/a&gt;, seasonal flows described in &lt;a href="https://www.sciencedirect.com/science/article/pii/S0966692315001581" target="_blank"&gt;Mao et al&lt;/a&gt;, and the dataset collected and output estimates available to download here.</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">10</td>
+<td>covariates</td>
+<td>Covariates</td>
+<td>Geospatial covariate data layers</td>
+<td>Recent years have seen substantial growth in openly available satellite and other geospatial data layers, which represent a range of metrics relevant to global human population mapping at fine spatial scales. The specifications of such data differ widely and therefore the harmonisation of data layers is a prerequisite to constructing detailed and contemporary spatial datasets which accurately describe population distributions. Such datasets are vital to measure impacts of population growth, monitor change, and plan interventions. To this end WorldPop has produced an open access archive of 3 and 30 arc-second resolution gridded data, which are available to download here and are described further in &lt;a href="https://www.tandfonline.com/doi/full/10.1080/20964471.2019.1625151" target="_blank"&gt;Lloyd et al 2019&lt;/a&gt; and also &lt;a href="https://www.nature.com/articles/sdata20171" target="_blank"&gt;Lloyd et al 2017&lt;/a&gt;.</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">11</td>
+<td>gbsg</td>
+<td>Global Settlement Growth</td>
+<td>Global Built-Settlement Growth</td>
+<td>Changing populations are often accompanied by changing built-settlement landscapes. Here, small area population data and a limited set of environmental covariates have been combined with machine learning methods and dynamically-limited growth curves to annually interpolate (from 2000 to 2014) and annually project (from 2015 to 2020) the presence of built-settlements across the globe at 100m resolution. These annual built-settlement maps were then used to inform the WorldPop "Global per country 2000-2020" population datasets. An overview of the built-settlement growth modeling framework can be found in &lt;a href="https://www.sciencedirect.com/science/article/pii/S019897151930290X" &gt;Nieves et al.&lt;/a&gt;</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">12</td>
+<td>gridcellsurfaceareas</td>
+<td>Grid-cell surface areas</td>
+<td>Grid-cell surface areas</td>
+<td>Grid-cell surface areas</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">13</td>
+<td>adminareas</td>
+<td>Administrative Areas</td>
+<td>Administrative Areas</td>
+<td>Administrative Areas</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">14</td>
+<td>pop_density</td>
+<td>Population Density</td>
+<td>Population Density</td>
+<td>&lt;b&gt;WorldPop produces different types of gridded population count datasets, depending on the methods used and end application. \r\nPlease make sure you have read our &lt;a href="https://www.worldpop.org/methods/populations" target="_blank"&gt;Mapping Populations&lt;/a&gt; overview page before choosing and downloading a dataset.&lt;/b&gt; \r\n&lt;br/&gt;&lt;br/&gt;\r\nDatasets are available to download in Geotiff and ASCII XYZ format at a &lt;u&gt;resolution of 30 arc-seconds (approximately 1km at the equator)&lt;/u&gt;\r\n&lt;br/&gt; \r\n\r\n-Unconstrained individual countries 2000-2020: Population density datasets for all countries of the World for each year 2000-2020 – derived from the corresponding \r\n&lt;a href="https://www.worldpop.org/geodata/listing?id=29"&gt;Unconstrained individual countries 2000-2020 population count datasets&lt;/a&gt; by dividing the number of people in each pixel by the pixel surface area. \r\nThese are produced using the &lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained"&gt;unconstrained top-down modelling method&lt;/a&gt;.\r\n&lt;br/&gt; \r\n-Unconstrained individual countries 2000-2020 UN adjusted: Population density datasets for all countries of the World for each year 2000-2020 – derived from the corresponding \r\n&lt;a href="https://www.worldpop.org/geodata/listing?id=69"&gt;Unconstrained individual countries 2000-2020 population UN adjusted count datasets&lt;/a&gt; by dividing the number of people in each pixel, \r\nadjusted to match the country total from the official United Nations population estimates (UN 2019), by the pixel surface area. \r\nThese are produced using the &lt;a href="https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained"&gt;unconstrained top-down modelling method&lt;/a&gt;.\r\n</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">15</td>
+<td>pwd</td>
+<td>Population Weighted Density</td>
+<td>Population Weighted Density</td>
+<td>&lt;b&gt;Population Weighted Density (PWD) is an alternative to conventional approaches to population density that is arguably better suited to some types of research in the fields of social science and epidemiology. In this release WorldPop publishes what we believe may be the first set of global estimates for PWD, which we offer at national and subnational levels since 2000. \r\nPlease make sure you have read our &lt;a href="https://www.worldpop.org/methods/pwd"&gt;Population Weighted Density&lt;/a&gt; overview page before choosing and downloading a dataset.&lt;/b&gt;</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="get-data-levels-for-a-specific-dataset" class="level3">
+<h3 class="anchored" data-anchor-id="get-data-levels-for-a-specific-dataset">Get data levels for a specific dataset</h3>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define API params</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> <span class="st">"https://www.worldpop.org/rest/data"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>dalias <span class="op">=</span> <span class="st">"pop"</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Get API data</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>base_url<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>dalias<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> get_api(url)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="4">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">alias</th>
+<th data-quarto-table-cell-role="th">name</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>pic</td>
+<td>Individual countries</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1</td>
+<td>pop_continent</td>
+<td>Whole Continent</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2</td>
+<td>wpgp</td>
+<td>Unconstrained individual countries 2000-2020 ( 100m resolution )</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3</td>
+<td>wpgp1km</td>
+<td>Unconstrained global mosaics 2000-2020 ( 1km resolution )</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4</td>
+<td></td>
+<td>WP00643</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">5</td>
+<td>wpgpunadj</td>
+<td>Unconstrained individual countries 2000-2020 UN adjusted ( 100m resolution )</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">6</td>
+<td>wpic1km</td>
+<td>Unconstrained individual countries 2000-2020 ( 1km resolution )</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">7</td>
+<td>wpicuadj1km</td>
+<td>Unconstrained individual countries 2000-2020 UN adjusted ( 1km resolution )</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">8</td>
+<td>cic2020_100m</td>
+<td>Constrained Individual countries 2020 ( 100m resolution )</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">9</td>
+<td>cic2020_UNadj_100m</td>
+<td>Constrained Individual countries 2020 UN adjusted (100m resolution)</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="get-the-countries-and-years" class="level3">
+<h3 class="anchored" data-anchor-id="get-the-countries-and-years">Get the Countries and Years</h3>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define API params</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> <span class="st">"https://www.worldpop.org/rest/data"</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>dalias <span class="op">=</span> <span class="st">"pop"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>dlevel <span class="op">=</span> <span class="st">"wpgp"</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>base_url<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>dalias<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>dlevel<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Get API data</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> get_api(url)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>data</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter for specific coutnry</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">sorted</span>(<span class="bu">set</span>(data[<span class="st">"iso3"</span>])))</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>data[data[<span class="st">"iso3"</span>] <span class="op">==</span> <span class="st">'PHL'</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>['ABW', 'AFG', 'AGO', 'AIA', 'ALA', 'ALB', 'AND', 'ARE', 'ARG', 'ARM', 'ASM', 'ATA', 'ATF', 'ATG', 'AUS', 'AUT', 'AZE', 'BDI', 'BEL', 'BEN', 'BES', 'BFA', 'BGD', 'BGR', 'BHR', 'BHS', 'BIH', 'BLM', 'BLR', 'BLZ', 'BMU', 'BOL', 'BRA', 'BRB', 'BRN', 'BTN', 'BVT', 'BWA', 'CAF', 'CAN', 'CHE', 'CHL', 'CHN', 'CIV', 'CMR', 'COD', 'COG', 'COK', 'COL', 'COM', 'CPV', 'CRI', 'CUB', 'CUW', 'CYM', 'CYP', 'CZE', 'DEU', 'DJI', 'DMA', 'DNK', 'DOM', 'DZA', 'ECU', 'EGY', 'ERI', 'ESH', 'ESP', 'EST', 'ETH', 'FIN', 'FJI', 'FLK', 'FRA', 'FRO', 'FSM', 'GAB', 'GBR', 'GEO', 'GGY', 'GHA', 'GIB', 'GIN', 'GLP', 'GMB', 'GNB', 'GNQ', 'GRC', 'GRD', 'GRL', 'GTM', 'GUF', 'GUM', 'GUY', 'HKG', 'HMD', 'HND', 'HRV', 'HTI', 'HUN', 'IDN', 'IMN', 'IND', 'IOT', 'IRL', 'IRN', 'IRQ', 'ISL', 'ISR', 'ITA', 'JAM', 'JEY', 'JOR', 'JPN', 'KAZ', 'KEN', 'KGZ', 'KHM', 'KIR', 'KNA', 'KOR', 'KOS', 'KWT', 'LAO', 'LBN', 'LBR', 'LBY', 'LCA', 'LIE', 'LKA', 'LSO', 'LTU', 'LUX', 'LVA', 'MAC', 'MAF', 'MAR', 'MCO', 'MDA', 'MDG', 'MDV', 'MEX', 'MHL', 'MKD', 'MLI', 'MLT', 'MMR', 'MNE', 'MNG', 'MNP', 'MOZ', 'MRT', 'MSR', 'MTQ', 'MUS', 'MWI', 'MYS', 'MYT', 'NAM', 'NCL', 'NER', 'NFK', 'NGA', 'NIC', 'NIU', 'NLD', 'NOR', 'NPL', 'NRU', 'NZL', 'OMN', 'PAK', 'PAN', 'PCN', 'PER', 'PHL', 'PLW', 'PNG', 'POL', 'PRI', 'PRK', 'PRT', 'PRY', 'PSE', 'PYF', 'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'SAU', 'SDN', 'SEN', 'SGP', 'SGS', 'SHN', 'SJM', 'SLB', 'SLE', 'SLV', 'SMR', 'SOM', 'SPM', 'SPR', 'SRB', 'SSD', 'STP', 'SUR', 'SVK', 'SVN', 'SWE', 'SWZ', 'SXM', 'SYC', 'SYR', 'TCA', 'TCD', 'TGO', 'THA', 'TJK', 'TKL', 'TKM', 'TLS', 'TON', 'TTO', 'TUN', 'TUR', 'TUV', 'TWN', 'TZA', 'UGA', 'UKR', 'UMI', 'URY', 'USA', 'UZB', 'VAT', 'VCT', 'VEN', 'VGB', 'VIR', 'VNM', 'VUT', 'WLF', 'WSM', 'YEM', 'ZAF', 'ZMB', 'ZWE']</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="5">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">id</th>
+<th data-quarto-table-cell-role="th">title</th>
+<th data-quarto-table-cell-role="th">popyear</th>
+<th data-quarto-table-cell-role="th">iso3</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">19</td>
+<td>1344</td>
+<td>The spatial distribution of population in 2000, Philippines</td>
+<td>2000</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">268</td>
+<td>1593</td>
+<td>The spatial distribution of population in 2001, Philippines</td>
+<td>2001</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">517</td>
+<td>1842</td>
+<td>The spatial distribution of population in 2002, Philippines</td>
+<td>2002</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">766</td>
+<td>2091</td>
+<td>The spatial distribution of population in 2003, Philippines</td>
+<td>2003</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">1015</td>
+<td>2340</td>
+<td>The spatial distribution of population in 2004, Philippines</td>
+<td>2004</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1264</td>
+<td>2589</td>
+<td>The spatial distribution of population in 2005, Philippines</td>
+<td>2005</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">1513</td>
+<td>2838</td>
+<td>The spatial distribution of population in 2006, Philippines</td>
+<td>2006</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">1762</td>
+<td>3087</td>
+<td>The spatial distribution of population in 2007, Philippines</td>
+<td>2007</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2011</td>
+<td>3336</td>
+<td>The spatial distribution of population in 2008, Philippines</td>
+<td>2008</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">2252</td>
+<td>3577</td>
+<td>The spatial distribution of population in 2009, Philippines</td>
+<td>2009</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2501</td>
+<td>3826</td>
+<td>The spatial distribution of population in 2010, Philippines</td>
+<td>2010</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">2750</td>
+<td>4075</td>
+<td>The spatial distribution of population in 2011, Philippines</td>
+<td>2011</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">2999</td>
+<td>4324</td>
+<td>The spatial distribution of population in 2012, Philippines</td>
+<td>2012</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3248</td>
+<td>4573</td>
+<td>The spatial distribution of population in 2013, Philippines</td>
+<td>2013</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">3497</td>
+<td>4822</td>
+<td>The spatial distribution of population in 2014, Philippines</td>
+<td>2014</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">3746</td>
+<td>5071</td>
+<td>The spatial distribution of population in 2015, Philippines</td>
+<td>2015</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">3995</td>
+<td>5320</td>
+<td>The spatial distribution of population in 2016, Philippines</td>
+<td>2016</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">4244</td>
+<td>5569</td>
+<td>The spatial distribution of population in 2017, Philippines</td>
+<td>2017</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4493</td>
+<td>5818</td>
+<td>The spatial distribution of population in 2018, Philippines</td>
+<td>2018</td>
+<td>PHL</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">4742</td>
+<td>6067</td>
+<td>The spatial distribution of population in 2019, Philippines</td>
+<td>2019</td>
+<td>PHL</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4991</td>
+<td>6316</td>
+<td>The spatial distribution of population in 2020, Philippines</td>
+<td>2020</td>
+<td>PHL</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="get-the-data-for-selected-countryyear" class="level3">
+<h3 class="anchored" data-anchor-id="get-the-data-for-selected-countryyear">Get the data for selected Country/Year</h3>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define API params</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> <span class="st">"https://www.worldpop.org/rest/data"</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>dalias <span class="op">=</span> <span class="st">"pop"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>dlevel <span class="op">=</span> <span class="st">"wpgp"</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>country <span class="op">=</span> <span class="st">"PHL"</span> <span class="co"># iso3</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>base_url<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>dalias<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>dlevel<span class="sc">}</span><span class="ss">?iso3=</span><span class="sc">{</span>country<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Get data</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> get_api(url)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>data</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter by year</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>data[data[<span class="st">"popyear"</span>] <span class="op">==</span> <span class="st">'2020'</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="6">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">id</th>
+<th data-quarto-table-cell-role="th">title</th>
+<th data-quarto-table-cell-role="th">desc</th>
+<th data-quarto-table-cell-role="th">doi</th>
+<th data-quarto-table-cell-role="th">date</th>
+<th data-quarto-table-cell-role="th">popyear</th>
+<th data-quarto-table-cell-role="th">citation</th>
+<th data-quarto-table-cell-role="th">data_file</th>
+<th data-quarto-table-cell-role="th">archive</th>
+<th data-quarto-table-cell-role="th">public</th>
+<th data-quarto-table-cell-role="th">...</th>
+<th data-quarto-table-cell-role="th">category</th>
+<th data-quarto-table-cell-role="th">gtype</th>
+<th data-quarto-table-cell-role="th">continent</th>
+<th data-quarto-table-cell-role="th">country</th>
+<th data-quarto-table-cell-role="th">iso3</th>
+<th data-quarto-table-cell-role="th">files</th>
+<th data-quarto-table-cell-role="th">url_img</th>
+<th data-quarto-table-cell-role="th">organisation</th>
+<th data-quarto-table-cell-role="th">license</th>
+<th data-quarto-table-cell-role="th">url_summary</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">20</td>
+<td>6316</td>
+<td>The spatial distribution of population in 2020, Philippines</td>
+<td>Estimated total number of people per grid-cell. The dataset is available to download in Geotiff format at a resolution of 3 arc (approximately 100m at the equator). The projection is Geographic Coordinate System, WGS84. The units are number of people per pixel. The mapping approach is Random Forest-based dasymetric redistribution.</td>
+<td>10.5258/SOTON/WP00645</td>
+<td>2018-11-01</td>
+<td>2020</td>
+<td>WorldPop (www.worldpop.org - School of Geography and Environmental Science, University of Southampton; Department of Geography and Geosciences, University of Louisville; Departement de Geographie, Universite de Namur) and Center for International Earth Science Information Network (CIESIN), Columbia University (2018). Global High Resolution Population Denominators Project - Funded by The Bill and Melinda Gates Foundation (OPP1134076). https://dx.doi.org/10.5258/SOTON/WP00645</td>
+<td>GIS/Population/Global_2000_2020/2020/PHL/phl_ppp_2020.tif</td>
+<td>N</td>
+<td>Y</td>
+<td>...</td>
+<td>Unconstrained individual countries 2000-2020 ( 100m resolution )</td>
+<td>Population</td>
+<td>Asia</td>
+<td>Philippines</td>
+<td>PHL</td>
+<td>[https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/PHL/phl_ppp_2020.tif]</td>
+<td>https://hub.worldpop.org/tabs/gdata/img/6316/phl_ppp_wpgp_2020_Image.png</td>
+<td>WorldPop, University of Southampton, UK, hub.worldpop.org</td>
+<td>https://hub.worldpop.org/data/licence.txt</td>
+<td>https://hub.worldpop.org/geodata/summary?id=6316</td>
+</tr>
+</tbody>
+</table>
+
+<p>1 rows × 27 columns</p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="get-the-data-and-do-something" class="level1">
+<h1>Get the data and do something</h1>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Download the file</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>data_2020 <span class="op">=</span> data[data[<span class="st">"popyear"</span>] <span class="op">==</span> <span class="st">'2020'</span>]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>data_file <span class="op">=</span> data_2020[<span class="st">"files"</span>].to_string(index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>data_file</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="7">
+<pre><code>'[https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/PHL/phl_ppp_2020.tif]'</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="41">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>tiff_file_path <span class="op">=</span> <span class="st">'phl_ppp_2020.tif'</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Replace 'your_raster.tif' with the path to your TIFF file</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>raster_data <span class="op">=</span> rasterio.<span class="bu">open</span>(tiff_file_path)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(raster_data.bounds) <span class="co"># Bounding box for the raster</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Read data</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>raster <span class="op">=</span> raster_data.read(<span class="dv">1</span>)</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>raster <span class="co"># We could replace the extreme &lt; 0 values for -1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>BoundingBox(left=116.927916214, bottom=4.586250183000001, right=126.605416175, top=21.070416784)</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="41">
+<pre><code>array([[-99999., -99999., -99999., ..., -99999., -99999., -99999.],
+       [-99999., -99999., -99999., ..., -99999., -99999., -99999.],
+       [-99999., -99999., -99999., ..., -99999., -99999., -99999.],
+       ...,
+       [-99999., -99999., -99999., ..., -99999., -99999., -99999.],
+       [-99999., -99999., -99999., ..., -99999., -99999., -99999.],
+       [-99999., -99999., -99999., ..., -99999., -99999., -99999.]],
+      dtype=float32)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="42">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Print a plot</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>plt.rcParams[<span class="st">'figure.figsize'</span>] <span class="op">=</span> <span class="dv">14</span>, <span class="dv">14</span> <span class="co"># Set image size</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>plt.imshow(np.log10(raster<span class="op">+</span><span class="dv">1</span>), )</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>bar <span class="op">=</span> plt.colorbar(fraction<span class="op">=</span><span class="fl">0.03</span>) <span class="co"># Controls legend ratio to image</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>C:\Users\Julian\AppData\Local\Temp\ipykernel_9372\78162664.py:3: RuntimeWarning: invalid value encountered in log10
+  plt.imshow(np.log10(raster+1), )</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="worldpop_data_files/figure-html/cell-9-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="44">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(raster[raster<span class="op">&gt;</span><span class="dv">0</span>].<span class="bu">sum</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>110194056.0</code></pre>
+</div>
+</div>
+<section id="advance-api-calls" class="level2">
+<h2 class="anchored" data-anchor-id="advance-api-calls">Advance API calls</h2>
+<p>The (API)[https://www.worldpop.org/sdi/advancedapi/] allow you to request data WorldPop for a custom geographic area defined by a geojson.</p>
+<p>Currently contains two services which run on the servers: ‘stats’ and ‘sample’. ‘stats’ is the primary service to return population totals. There are currently two datasets available in the API containing the total population from the WorldPop Global Project (‘wpgppop’) and the total population in age and sex categories (‘wpgpas’).</p>
+<section id="open-a-task" class="level3">
+<h3 class="anchored" data-anchor-id="open-a-task">Open a task</h3>
+<div class="cell" data-execution_count="64">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define API params</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>base_url <span class="op">=</span> <span class="st">"https://api.worldpop.org/v1/services"</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>service <span class="op">=</span> <span class="st">"stats"</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>dataset <span class="op">=</span> <span class="st">"wpgppop"</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>year <span class="op">=</span> <span class="st">"2010"</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="co"># geo = json.load(open('phl_2017_poverty.geojson')) # Load custom geojson</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>geo <span class="op">=</span> <span class="st">"{“type':'FeatureCollection','features':[{“type':'Feature','properties':</span><span class="sc">{}</span><span class="st">,'geometry':{“type':'Polygon','coordinates':[[[10.546875,47.62097541515849],[9.95361328125,46.437856895024204],[11.315917968749998,45.98169518512228],[12.63427734375,46.66451741754235],[12.65625,47.85740289465826],[10.546875,47.62097541515849]]]</span><span class="sc">}}</span><span class="st">]}"</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>asyncro <span class="op">=</span> <span class="st">"false"</span> <span class="co"># Shoudl result be given straight away</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>url <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>base_url<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>service<span class="sc">}</span><span class="ss">?dataset=</span><span class="sc">{</span>dataset<span class="sc">}</span><span class="ss">&amp;year=</span><span class="sc">{</span>year<span class="sc">}</span><span class="ss">&amp;geojson=</span><span class="sc">{</span>geo<span class="sc">}</span><span class="ss">&amp;runasync=</span><span class="sc">{</span>asyncro<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Get data</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> get_api(url, record_path<span class="op">=</span><span class="va">None</span>)</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="64">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">status</th>
+<th data-quarto-table-cell-role="th">status_code</th>
+<th data-quarto-table-cell-role="th">error</th>
+<th data-quarto-table-cell-role="th">error_message</th>
+<th data-quarto-table-cell-role="th">taskid</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">0</td>
+<td>finished</td>
+<td>200</td>
+<td>False</td>
+<td>None</td>
+<td>79a145a8-ef70-50a5-8728-c0f243ac06bf</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+</section>
+<section id="monitor-task-status" class="level3">
+<h3 class="anchored" data-anchor-id="monitor-task-status">Monitor task status</h3>
+<div class="cell" data-execution_count="65">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define API params</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>task_url <span class="op">=</span> <span class="st">"https://api.worldpop.org/v1/tasks"</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>task_id <span class="op">=</span> data[<span class="st">"taskid"</span>].to_string(index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>task_url <span class="op">=</span> <span class="ss">f"</span><span class="sc">{</span>task_url<span class="sc">}</span><span class="ss">/</span><span class="sc">{</span>task_id<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(task_url)</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Get response</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>response <span class="op">=</span> requests.get(task_url)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>data_task <span class="op">=</span> response.json()  <span class="co"># If the response is in JSON format</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>data_task</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>https://api.worldpop.org/v1/tasks/79a145a8-ef70-50a5-8728-c0f243ac06bf</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="65">
+<pre><code>{'status': 'finished',
+ 'error': True,
+ 'error_message': 'No User Description for this type of error: JSONDecodeError',
+ 'taskid': '79a145a8-ef70-50a5-8728-c0f243ac06bf',
+ 'startTime': '2023-08-26 11:12:53.251456',
+ 'endTime': '2023-08-26 11:12:54.25688',
+ 'executionTime': 1}</code></pre>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
